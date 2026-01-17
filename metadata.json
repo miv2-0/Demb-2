@@ -1,7 +1,5 @@
 {
-  "name": "OmniExtract Pro - Indian Mobile OCR",
-  "description": "A high-end OCR utility optimized for extracting, formatting, and exporting Indian mobile numbers from batches of images with advanced image preprocessing.",
-  "requestFramePermissions": [
-    "camera"
-  ]
+  "name": "OmniExtract Pro - Stealth Edition",
+  "description": "High-fidelity OCR engine for Indian mobile extraction.",
+  "requestFramePermissions": []
 }
