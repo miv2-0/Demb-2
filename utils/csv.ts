@@ -1,8 +1,9 @@
 // Implement CSV generation optimized for Google Contacts import
 export const generateCSV = (data: string[]): string => {
   if (data.length === 0) return '';
-  // Construct headers compatible with Google Contacts: Name, Phone 1 - Value
+  // Google Contacts compatible headers: Name, Phone 1 - Value
   const headers = 'Name,Phone 1 - Value';
+  // Use sequential indexing for names to keep the stealth mode consistent
   const rows = data.map((num, idx) => `Contact ${idx + 1},${num}`);
   
   return `${headers}\n${rows.join('\n')}`;
