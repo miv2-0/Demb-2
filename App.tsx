@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Upload, 
   Download, 
@@ -9,7 +9,9 @@ import {
   AlertCircle,
   LayoutDashboard,
   Smartphone,
-  ImagePlus
+  Zap,
+  ShieldCheck,
+  Terminal
 } from 'lucide-react';
 import { ProcessingFile, ExtractedNumber, DownloadHistory } from './types';
 import { preprocessImage, extractAndFormatNumbers } from './utils/imageProcessing';
@@ -22,18 +24,17 @@ const App: React.FC = () => {
   const [extractedNumbers, setExtractedNumbers] = useState<ExtractedNumber[]>([]);
   const [history, setHistory] = useState<DownloadHistory[]>([]);
   const [downloadCount, setDownloadCount] = useState(0);
-  const [showLogs, setShowLogs] = useState(false);
+  const [logs, setLogs] = useState<{msg: string, type: 'info' | 'success' | 'error'}[]>([]);
+  const logsEndRef = useRef<HTMLDivElement>(null);
 
-  // Load state from localStorage
   useEffect(() => {
     const savedHistory = localStorage.getItem('omniextract_history');
     if (savedHistory) setHistory(JSON.parse(savedHistory));
-
     const savedCount = localStorage.getItem('omniextract_count');
     if (savedCount) setDownloadCount(parseInt(savedCount, 10));
+    addLog('System initialized. Awaiting input buffer...', 'info');
   }, []);
 
-  // Save state to localStorage
   useEffect(() => {
     localStorage.setItem('omniextract_history', JSON.stringify(history));
   }, [history]);
@@ -42,13 +43,19 @@ const App: React.FC = () => {
     localStorage.setItem('omniextract_count', downloadCount.toString());
   }, [downloadCount]);
 
+  useEffect(() => {
+    logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [logs]);
+
+  const addLog = (msg: string, type: 'info' | 'success' | 'error' = 'info') => {
+    setLogs(prev => [...prev, { msg, type }]);
+  };
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles: File[] = Array.from(e.target.files || []);
     if (selectedFiles.length === 0) return;
 
-    // Limit to 20 images
     const limitedFiles = selectedFiles.slice(0, 20);
-    
     const newFiles: ProcessingFile[] = limitedFiles.map((f: File) => ({
       id: Math.random().toString(36).substr(2, 9),
       file: f,
@@ -58,11 +65,13 @@ const App: React.FC = () => {
     }));
 
     setFiles(prev => [...prev, ...newFiles]);
+    addLog(`Ingested ${limitedFiles.length} objects into processing queue.`, 'info');
   };
 
   const processAll = async () => {
     if (files.length === 0 || isProcessing) return;
     setIsProcessing(true);
+    addLog('Starting extraction sequence...', 'info');
 
     const updatedFiles = [...files];
     const newExtracted: ExtractedNumber[] = [];
@@ -73,19 +82,17 @@ const App: React.FC = () => {
 
       try {
         setFiles(prev => prev.map(f => f.id === current.id ? { ...f, status: 'processing', progress: 20 } : f));
+        addLog(`Processing Object: ${current.file.name}...`, 'info');
         
-        // 1. Preprocess
         const base64 = await preprocessImage(current.file);
         setFiles(prev => prev.map(f => f.id === current.id ? { ...f, progress: 50 } : f));
 
-        // 2. OCR
         const { text } = await performOCR(base64);
         setFiles(prev => prev.map(f => f.id === current.id ? { ...f, progress: 80, rawText: text } : f));
 
-        // 3. Extract Numbers
         const numbers = extractAndFormatNumbers(text);
+        let foundNew = 0;
         numbers.forEach(num => {
-          // Prevent duplicates globally across this batch and existing session
           const isDuplicate = 
             newExtracted.some(n => n.formatted === num) || 
             extractedNumbers.some(n => n.formatted === num);
@@ -97,17 +104,26 @@ const App: React.FC = () => {
               formatted: num,
               sourceImage: current.file.name
             });
+            foundNew++;
           }
         });
 
+        if (foundNew > 0) {
+          addLog(`Extraction Success: ${foundNew} unique targets identified in ${current.file.name}.`, 'success');
+        } else {
+          addLog(`Scan Complete: No new unique targets in ${current.file.name}.`, 'info');
+        }
+
         setFiles(prev => prev.map(f => f.id === current.id ? { ...f, status: 'completed', progress: 100 } : f));
       } catch (err) {
-        setFiles(prev => prev.map(f => f.id === current.id ? { ...f, status: 'error', error: 'Failed to process image' } : f));
+        addLog(`Critical Error processing ${current.file.name}. Core skip.`, 'error');
+        setFiles(prev => prev.map(f => f.id === current.id ? { ...f, status: 'error', error: 'Extraction failed' } : f));
       }
     }
 
     setExtractedNumbers(prev => [...prev, ...newExtracted]);
     setIsProcessing(false);
+    addLog('Batch processing sequence finalized.', 'success');
   };
 
   const handleDownload = () => {
@@ -119,7 +135,6 @@ const App: React.FC = () => {
     
     downloadCSV(csvContent, filename);
 
-    // Update history
     const historyItem: DownloadHistory = {
       id: Math.random().toString(36).substr(2, 9),
       filename,
@@ -130,244 +145,178 @@ const App: React.FC = () => {
 
     setHistory(prev => [historyItem, ...prev].slice(0, 5));
     setDownloadCount(nextCount);
+    addLog(`Buffer exported to ${filename}.`, 'success');
   };
 
   const clearAll = () => {
     setFiles([]);
     setExtractedNumbers([]);
     setIsProcessing(false);
+    addLog('Buffer cleared. System reset.', 'info');
   };
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col p-4 sm:p-10">
       {/* Header */}
-      <header className="bg-white border-b border-slate-200 px-6 py-4 sticky top-0 z-50 shadow-sm">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="bg-indigo-600 p-2 rounded-xl text-white">
-              <Smartphone size={24} />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold tracking-tight text-slate-900">OmniExtract Pro</h1>
-              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">High-End Extraction Engine</p>
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-4">
-            <button 
-              onClick={() => setShowLogs(!showLogs)}
-              className="text-xs font-bold text-slate-400 hover:text-indigo-600 transition-colors uppercase tracking-widest"
-            >
-              {showLogs ? 'Hide Engine Logs' : 'View Engine Logs'}
-            </button>
-            <div className="h-6 w-px bg-slate-200"></div>
-            <button 
-              onClick={clearAll}
-              className="p-2 text-slate-400 hover:text-red-500 transition-colors"
-              title="Clear All Session Data"
-            >
-              <Trash2 size={20} />
-            </button>
-          </div>
+      <div className="max-w-6xl mx-auto w-full flex flex-col sm:flex-row justify-between items-start sm:items-end pb-8 border-b border-slate-800 gap-4 mb-10">
+        <div>
+          <h1 className="text-4xl font-black text-white tracking-tighter glow-text italic flex items-center gap-3">
+            OMNI<span className="text-indigo-500">EXTRACT</span> <span className="text-slate-500 not-italic font-light">PRO</span>
+          </h1>
+          <p className="text-[10px] text-slate-500 font-bold uppercase tracking-[0.4em] mono mt-1">Stealth Ops // Fixed CSV Format for Google Contacts</p>
         </div>
-      </header>
+        <div className="flex items-center gap-4">
+          <button 
+            onClick={clearAll}
+            className="text-[10px] text-red-500 hover:text-red-400 font-bold uppercase tracking-widest border border-red-900/30 bg-red-950/20 px-5 py-2 rounded-full transition-all hover:bg-red-900/40"
+          >
+            Reset System
+          </button>
+        </div>
+      </div>
 
-      <main className="flex-1 max-w-7xl mx-auto w-full p-4 lg:p-8 grid grid-cols-1 lg:grid-cols-12 gap-8">
+      <main className="max-w-6xl mx-auto w-full grid grid-cols-1 lg:grid-cols-12 gap-8 flex-1">
         
-        {/* Left Column: Upload & Processing Queue */}
-        <div className="lg:col-span-8 space-y-6">
+        {/* Left: Input Buffer */}
+        <div className="lg:col-span-5 space-y-8">
           
-          {/* Upload Card */}
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-            <div className="p-6 border-b border-slate-100 flex items-center justify-between">
-              <h2 className="text-lg font-semibold flex items-center gap-2 text-slate-800">
-                <Upload size={18} className="text-indigo-500" />
-                Upload Images
-              </h2>
-              <div className="flex items-center gap-3">
-                {extractedNumbers.length > 0 && (
-                  <button 
-                    onClick={handleDownload}
-                    className="px-4 py-2 bg-emerald-600 text-white text-sm font-bold rounded-xl hover:bg-emerald-700 transition-all flex items-center gap-2 shadow-lg shadow-emerald-100 animate-in fade-in zoom-in duration-300"
-                  >
-                    <Download size={16} />
-                    Export CSV
-                  </button>
-                )}
-                <span className="text-xs text-slate-400 font-medium">Batch Limit: 20</span>
+          <div className="glass rounded-3xl p-1 relative overflow-hidden group">
+            <div className="p-8 flex flex-col items-center justify-center text-center cursor-pointer relative z-10">
+              <input 
+                type="file" 
+                multiple 
+                accept="image/*" 
+                onChange={handleFileUpload}
+                disabled={isProcessing}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20"
+              />
+              <div className="p-5 bg-indigo-500/10 rounded-2xl mb-4 border border-indigo-500/20 group-hover:scale-110 transition-transform duration-500">
+                <Upload className="w-8 h-8 text-indigo-500" />
               </div>
-            </div>
-            
-            <div className="p-8">
-              <label className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed border-slate-300 rounded-2xl cursor-pointer bg-slate-50 hover:bg-indigo-50/50 hover:border-indigo-300 transition-all">
-                <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                  <div className="p-3 bg-white rounded-full shadow-sm mb-4">
-                    <ImagePlus className="w-8 h-8 text-indigo-500" />
-                  </div>
-                  <p className="mb-2 text-sm text-slate-700">
-                    <span className="font-semibold text-indigo-600">Browse image files</span> or drag and drop
-                  </p>
-                  <p className="text-xs text-slate-500 font-medium">Automatic 91-prefix & formatting</p>
-                </div>
-                <input 
-                  type="file" 
-                  className="hidden" 
-                  multiple 
-                  accept="image/*" 
-                  onChange={handleFileUpload}
-                  disabled={isProcessing}
-                />
-              </label>
-
-              {files.length > 0 && (
-                <div className="mt-8 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider">Processing Queue: {files.length}</h3>
-                    <button 
-                      onClick={processAll}
-                      disabled={isProcessing}
-                      className="px-5 py-2.5 bg-indigo-600 text-white text-sm font-bold rounded-xl hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2 transition-all shadow-lg shadow-indigo-100"
-                    >
-                      {isProcessing ? <Loader2 className="animate-spin" size={18} /> : <CheckCircle2 size={18} />}
-                      {isProcessing ? 'Processing...' : 'Run Extraction'}
-                    </button>
-                  </div>
-                  
-                  <div className="max-h-[500px] overflow-y-auto space-y-2 pr-2">
-                    {files.map(file => (
-                      <div key={file.id} className="flex items-center gap-4 p-3 bg-white border border-slate-200 rounded-xl transition-all">
-                        <img src={file.previewUrl} className="w-12 h-12 object-cover rounded-lg border border-slate-100" alt="preview" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold text-slate-800 truncate">{file.file.name}</p>
-                          <div className="mt-1">
-                            {file.status === 'completed' ? (
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Success</span>
-                                <CheckCircle2 size={10} className="text-emerald-500" />
-                              </div>
-                            ) : file.status === 'processing' ? (
-                              <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
-                                <div className="bg-indigo-600 h-1.5 rounded-full transition-all duration-300" style={{ width: `${file.progress}%` }}></div>
-                              </div>
-                            ) : file.status === 'error' ? (
-                              <span className="text-[10px] font-black text-red-500 uppercase tracking-widest">Failed</span>
-                            ) : (
-                              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Waiting</span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+              <p className="font-black text-white text-xl tracking-tight">INGEST DATA</p>
+              <p className="text-[10px] text-slate-500 mono mt-2 uppercase tracking-widest font-bold">Max 20 image objects per batch</p>
             </div>
           </div>
 
-          {/* Background Status Information */}
-          {extractedNumbers.length > 0 && !isProcessing && (
-            <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-6 text-center animate-in slide-in-from-bottom-4 duration-500 shadow-sm shadow-emerald-50">
-               <div className="mx-auto w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center mb-3">
-                  <CheckCircle2 className="text-emerald-600" size={24} />
-               </div>
-               <h3 className="text-emerald-900 font-bold text-lg">Batch Processed Successfully</h3>
-               <p className="text-emerald-800 text-sm mt-1 font-medium">
-                 {extractedNumbers.length} unique Indian mobile numbers were extracted and formatted with the 91-prefix.
-               </p>
-               <p className="text-emerald-600 text-xs mt-3 uppercase font-bold tracking-widest">
-                 Ready for CSV Export
-               </p>
-            </div>
-          )}
-        </div>
-
-        {/* Right Column: Statistics, History & Logs */}
-        <div className="lg:col-span-4 space-y-6">
-          
-          {/* Dashboard Stats */}
-          <div className="bg-indigo-600 rounded-3xl shadow-xl shadow-indigo-100 p-8 text-white relative overflow-hidden">
-            <div className="relative z-10">
-              <h3 className="text-indigo-100 text-[10px] font-black uppercase tracking-[0.2em] mb-2 opacity-80">Extraction Dashboard</h3>
-              <div className="text-6xl font-black mb-1 leading-none tracking-tight">
-                {extractedNumbers.length.toString().padStart(2, '0')}
-              </div>
-              <p className="text-indigo-100 text-xs font-semibold mt-2">Unique Mobiles in Buffer</p>
-            </div>
-            <LayoutDashboard className="absolute -bottom-6 -right-6 w-32 h-32 text-indigo-500 opacity-30 rotate-12" />
-          </div>
-
-          {/* Export History */}
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-            <div className="p-6 border-b border-slate-100 flex items-center gap-2">
-              <History size={18} className="text-indigo-500" />
-              <h2 className="text-lg font-semibold text-slate-800">Recent Exports</h2>
-            </div>
-            <div className="p-4 space-y-3">
-              {history.length > 0 ? history.map(item => (
-                <div key={item.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100 hover:border-indigo-100 transition-all group">
-                  <div className="min-w-0">
-                    <p className="text-sm font-bold text-slate-800">{item.filename}</p>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter mt-0.5">
-                      {new Date(item.timestamp).toLocaleTimeString()} • {item.count} items
-                    </p>
-                  </div>
-                  <button 
-                    onClick={() => downloadCSV(item.data, item.filename)}
-                    className="p-2 text-indigo-600 bg-white rounded-lg shadow-sm border border-slate-200 group-hover:bg-indigo-600 group-hover:text-white transition-all shadow-indigo-50"
-                  >
-                    <Download size={16} />
-                  </button>
-                </div>
-              )) : (
-                <p className="text-center py-8 text-sm text-slate-400 italic font-medium">No previous exports found</p>
-              )}
-            </div>
-          </div>
-
-          {/* Background Engine Logs */}
-          {showLogs && (
-            <div className="bg-slate-900 rounded-2xl shadow-xl p-6 text-slate-300 font-mono text-xs animate-in slide-in-from-top-4 duration-300 border border-slate-800">
-              <div className="flex items-center justify-between mb-4 border-b border-slate-800 pb-3">
-                <span className="flex items-center gap-2 text-emerald-400 font-bold uppercase tracking-widest">
-                  <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
-                  OCR Stream
-                </span>
-                <span className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Read Only</span>
-              </div>
-              <div className="max-h-96 overflow-y-auto space-y-4 scrollbar-hide">
-                {files.filter(f => f.rawText).length > 0 ? (
-                  files.filter(f => f.rawText).map(f => (
-                    <div key={f.id} className="border-l-2 border-slate-700 pl-3 py-1">
-                      <p className="text-indigo-400 font-bold mb-1">Source: {f.file.name}</p>
-                      <p className="leading-relaxed opacity-70 whitespace-pre-wrap">{f.rawText}</p>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-slate-600 italic">Engine logs are populated upon scan start...</p>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Privacy & Mode Info */}
-          <div className="bg-slate-50 rounded-2xl p-6 border border-slate-200">
-            <div className="flex items-start gap-3">
-              <AlertCircle size={20} className="text-indigo-500 shrink-0" />
+          <div className="glass p-8 rounded-3xl relative overflow-hidden border border-slate-800">
+            <div className="flex items-center justify-between mb-8">
               <div>
-                <h4 className="text-sm font-bold text-slate-900 uppercase tracking-tight">Privacy Focus Mode</h4>
-                <p className="text-xs text-slate-600 mt-2 leading-relaxed font-medium">
-                  Result previews are disabled by default. The extraction engine handles all deduplication and 91-prefix formatting invisibly. Use the "Export CSV" button to retrieve the compiled dataset.
+                <p className="text-[10px] font-bold text-slate-500 mono uppercase tracking-widest mb-1">Unique Mobiles</p>
+                <h3 className="text-6xl font-black text-white tracking-tighter">{extractedNumbers.length.toString().padStart(2, '0')}</h3>
+              </div>
+              <div className="p-4 bg-indigo-500/10 border border-indigo-500/20 rounded-2xl">
+                <ShieldCheck className="w-8 h-8 text-indigo-500" />
+              </div>
+            </div>
+
+            {files.length > 0 && !isProcessing && extractedNumbers.length === 0 && (
+              <button 
+                onClick={processAll}
+                className="w-full py-5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all shadow-xl shadow-indigo-900/20 mb-4 flex items-center justify-center gap-2"
+              >
+                <Zap className="w-4 h-4 fill-white" />
+                Run Extraction
+              </button>
+            )}
+
+            <button 
+              onClick={handleDownload}
+              disabled={extractedNumbers.length === 0 || isProcessing}
+              className={`w-full py-5 rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 ${
+                extractedNumbers.length > 0 && !isProcessing 
+                ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-xl shadow-emerald-900/20' 
+                : 'bg-slate-900 text-slate-700 border border-slate-800 cursor-not-allowed'
+              }`}
+            >
+              {isProcessing ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                <>
+                  <Download className="w-4 h-4" />
+                  Export to CSV
+                </>
+              )}
+            </button>
+            <p className="text-[9px] text-center text-slate-600 font-bold mono mt-4 uppercase tracking-widest opacity-50">Volume: {downloadCount + 1}.CSV</p>
+          </div>
+
+          <div className="bg-slate-900/30 rounded-2xl p-6 border border-slate-800/50">
+            <div className="flex items-start gap-3">
+              <AlertCircle size={20} className="text-indigo-500 shrink-0 mt-0.5" />
+              <div>
+                <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Stealth Protocol</h4>
+                <p className="text-[11px] text-slate-500 mt-2 leading-relaxed font-medium">
+                  Extraction list is obfuscated for privacy. Output strictly formatted for direct import into Google Contacts.
                 </p>
               </div>
             </div>
           </div>
+        </div>
 
+        {/* Right: Kernel Logs & History */}
+        <div className="lg:col-span-7 space-y-8 flex flex-col">
+          
+          <div className="glass rounded-3xl overflow-hidden flex flex-col flex-1 border border-slate-800 shadow-2xl">
+            <div className="bg-slate-950/80 p-4 border-b border-slate-800 flex justify-between items-center">
+              <div className="flex items-center gap-3">
+                <Terminal className="w-4 h-4 text-slate-600" />
+                <span className="text-[10px] font-bold text-slate-500 font-mono tracking-widest uppercase">Kernel Output Stream</span>
+              </div>
+              <div className="flex gap-1">
+                <div className="w-2 h-2 rounded-full bg-slate-800"></div>
+                <div className="w-2 h-2 rounded-full bg-slate-800"></div>
+                <div className="w-2 h-2 rounded-full bg-slate-800"></div>
+              </div>
+            </div>
+            
+            <div className="flex-1 p-6 font-mono text-[11px] overflow-y-auto space-y-1.5 bg-black/40 min-h-[300px]">
+              {logs.map((log, idx) => (
+                <div key={idx} className={`animate-in fade-in slide-in-from-left-2 duration-300 ${
+                  log.type === 'success' ? 'text-emerald-500' : 
+                  log.type === 'error' ? 'text-red-500' : 'text-slate-400'
+                }`}>
+                  <span className="opacity-50 mr-2">[{new Date().toLocaleTimeString([], {hour12: false})}]</span>
+                  <span className="font-bold">>> {log.msg.toUpperCase()}</span>
+                </div>
+              ))}
+              <div ref={logsEndRef} />
+            </div>
+          </div>
+
+          {history.length > 0 && (
+            <div className="glass rounded-3xl p-6 border border-slate-800">
+              <div className="flex items-center gap-2 mb-4">
+                <History size={16} className="text-indigo-500" />
+                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Historical Exports</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {history.map(item => (
+                  <div key={item.id} className="flex items-center justify-between p-3 bg-slate-900/50 rounded-xl border border-slate-800/50 hover:border-indigo-500/30 transition-all group">
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-bold text-slate-300 truncate">{item.filename}</p>
+                      <p className="text-[9px] font-bold text-slate-600 uppercase tracking-tighter mt-0.5">
+                        {item.count} Targets Found
+                      </p>
+                    </div>
+                    <button 
+                      onClick={() => downloadCSV(item.data, item.filename)}
+                      className="p-2 text-indigo-400 hover:text-white hover:bg-indigo-600 rounded-lg transition-all"
+                    >
+                      <Download size={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </main>
 
-      {/* Footer */}
-      <footer className="bg-white border-t border-slate-100 py-6 px-6 text-center text-slate-400 text-[10px] font-bold uppercase tracking-[0.3em]">
-        OmniExtract Pro • Background OCR Engine • © 2024
+      <footer className="max-w-6xl mx-auto w-full pt-10 pb-6 text-center text-slate-600 text-[10px] font-black uppercase tracking-[0.4em] opacity-50">
+        OmniExtract Pro • Background OCR Engine • Secure Transmission
       </footer>
     </div>
   );

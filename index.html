@@ -1,379 +1,49 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OmniExtract Pro | Stealth Edition</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --bg-deep: #020617;
-            --accent: #3b82f6;
-            --accent-glow: rgba(59, 130, 246, 0.4);
-            --glass: rgba(15, 23, 42, 0.8);
-        }
-
-        body { 
-            background-color: var(--bg-deep); 
-            color: #f8fafc; 
-            font-family: 'Inter', sans-serif;
-            overflow-x: hidden;
-        }
-
-        .mono { font-family: 'JetBrains Mono', monospace; }
-
-        .glass { 
-            background: var(--glass); 
-            backdrop-filter: blur(16px); 
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
-        }
-
-        .glow-text { text-shadow: 0 0 15px var(--accent-glow); }
-        
-        .scanline {
-            width: 100%;
-            height: 2px;
-            background: var(--accent);
-            position: absolute;
-            top: 0;
-            left: 0;
-            opacity: 0.5;
-            box-shadow: 0 0 10px var(--accent);
-            animation: scan 3s linear infinite;
-            display: none;
-        }
-
-        @keyframes scan {
-            0% { top: 0; }
-            100% { top: 100%; }
-        }
-
-        /* Custom Scrollbar */
-        ::-webkit-scrollbar { width: 4px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
-        ::-webkit-scrollbar-thumb:hover { background: #475569; }
-
-        .gradient-border {
-            position: relative;
-            background: var(--bg-deep);
-            border-radius: 1rem;
-        }
-        .gradient-border::before {
-            content: "";
-            position: absolute;
-            inset: -1px;
-            border-radius: 1rem;
-            padding: 1px;
-            background: linear-gradient(45deg, #1e293b, var(--accent), #1e293b);
-            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-            -webkit-mask-composite: xor;
-            mask-composite: exclude;
-            pointer-events: none;
-        }
-
-        .btn-active {
-            background: linear-gradient(135deg, #2563eb, #7c3aed);
-            box-shadow: 0 4px 15px rgba(37, 99, 235, 0.4);
-        }
-    </style>
-<script type="importmap">
-{
-  "imports": {
-    "react/": "https://esm.sh/react@^19.2.3/",
-    "react": "https://esm.sh/react@^19.2.3",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
-    "@google/genai": "https://esm.sh/@google/genai@^1.37.0",
-    "lucide-react": "https://esm.sh/lucide-react@^0.562.0"
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OmniExtract Pro | Stealth Edition</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-deep: #020617;
+      --accent: #6366f1;
+      --accent-glow: rgba(99, 102, 241, 0.4);
+    }
+    body {
+      background-color: var(--bg-deep);
+      color: #f8fafc;
+      font-family: 'Inter', sans-serif;
+      overflow-x: hidden;
+    }
+    .mono { font-family: 'JetBrains Mono', monospace; }
+    .glass {
+      background: rgba(15, 23, 42, 0.6);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    .glow-text { text-shadow: 0 0 15px var(--accent-glow); }
+    /* Hide scrollbar for clean stealth look */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+  </style>
+  <script type="importmap">
+  {
+    "imports": {
+      "react/": "https://esm.sh/react@^19.2.3/",
+      "react": "https://esm.sh/react@^19.2.3",
+      "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+      "@google/genai": "https://esm.sh/@google/genai@^1.37.0",
+      "lucide-react": "https://esm.sh/lucide-react@^0.562.0"
+    }
   }
-}
-</script>
+  </script>
 </head>
-<body class="min-h-screen flex items-center justify-center p-6 sm:p-10">
-
-    <!-- Ambient Background -->
-    <div class="fixed inset-0 pointer-events-none overflow-hidden">
-        <div class="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-900/10 rounded-full blur-[120px]"></div>
-        <div class="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-purple-900/10 rounded-full blur-[120px]"></div>
-    </div>
-
-    <div class="w-full max-w-5xl space-y-8 relative z-10">
-        
-        <!-- Header -->
-        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-end pb-6 border-b border-slate-800 gap-4">
-            <div>
-                <h1 class="text-3xl font-black text-white tracking-tighter glow-text italic">
-                    OMNI<span class="text-blue-500">EXTRACT</span> <span class="text-slate-500 not-italic font-light">PRO</span>
-                </h1>
-                <p class="text-[10px] text-slate-500 font-bold uppercase tracking-[0.4em] mono mt-1">Stealth Ops // High-Fidelity OCR Engine</p>
-            </div>
-            <div class="flex items-center gap-4">
-                <span id="engineStatus" class="flex items-center gap-2 text-[10px] font-bold text-slate-500 mono bg-slate-900/50 px-3 py-1.5 rounded-full border border-slate-800">
-                    <span class="w-1.5 h-1.5 bg-slate-600 rounded-full" id="statusDot"></span>
-                    ENGINE IDLE
-                </span>
-                <button onclick="resetApp()" class="text-[10px] text-red-500 hover:text-red-400 font-bold uppercase tracking-widest border border-red-900/30 bg-red-950/20 px-4 py-1.5 rounded-full transition-all hover:bg-red-900/30">
-                    Reset
-                </button>
-            </div>
-        </div>
-
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
-            
-            <!-- Control Cluster -->
-            <div class="lg:col-span-5 space-y-8">
-                
-                <!-- Upload Area -->
-                <div class="gradient-border group overflow-hidden">
-                    <div class="glass p-10 flex flex-col items-center justify-center text-center cursor-pointer relative">
-                        <input type="file" id="fileInput" multiple accept="image/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20">
-                        <div id="scanline" class="scanline"></div>
-                        <div class="p-4 bg-blue-500/10 rounded-2xl mb-4 group-hover:scale-110 transition-transform duration-500 border border-blue-500/20">
-                            <svg class="w-8 h-8 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
-                        </div>
-                        <p class="font-black text-white text-lg tracking-tight">INGEST DATA</p>
-                        <p class="text-[10px] text-slate-500 mono mt-2 uppercase tracking-widest font-bold">Limit: 20 image objects</p>
-                    </div>
-                </div>
-
-                <!-- Progress Section -->
-                <div id="statusPanel" class="glass p-6 rounded-2xl hidden animate-in fade-in duration-500">
-                    <div class="flex justify-between items-center text-[10px] font-bold mono mb-3 tracking-widest">
-                        <span class="text-blue-400 uppercase" id="progressLabel">Initializing Scan...</span>
-                        <span id="percentText" class="text-white">0%</span>
-                    </div>
-                    <div class="h-1.5 bg-slate-900 rounded-full overflow-hidden border border-slate-800">
-                        <div id="progressBar" class="h-full bg-gradient-to-r from-blue-600 via-purple-600 to-blue-500 w-0 transition-all duration-300"></div>
-                    </div>
-                </div>
-
-                <!-- Results & Export -->
-                <div class="glass p-8 rounded-3xl relative overflow-hidden">
-                    <div class="flex items-center justify-between mb-8">
-                        <div>
-                            <p class="text-[10px] font-bold text-slate-500 mono uppercase tracking-widest">Unique Mobiles</p>
-                            <h3 class="text-5xl font-black text-white mt-1 tracking-tighter" id="countBadge">00</h3>
-                        </div>
-                        <div class="p-4 bg-emerald-500/5 border border-emerald-500/20 rounded-2xl">
-                            <svg class="w-6 h-6 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                        </div>
-                    </div>
-                    
-                    <button id="dlBtn" onclick="downloadCSV()" disabled class="w-full py-5 bg-slate-900 text-slate-600 rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all border border-slate-800 flex items-center justify-center gap-3">
-                        <span id="btnText">System Standby</span>
-                    </button>
-                    <p id="nextFileHint" class="text-[9px] text-center text-slate-600 font-bold mono mt-4 uppercase tracking-widest opacity-50">Volume: 1.CSV</p>
-                </div>
-            </div>
-
-            <!-- Terminal Cluster -->
-            <div class="lg:col-span-7 glass rounded-3xl overflow-hidden flex flex-col h-[520px] lg:h-auto border border-slate-800">
-                <div class="bg-slate-950 p-4 border-b border-slate-800 flex justify-between items-center">
-                    <div class="flex items-center gap-3">
-                        <div class="flex gap-1.5">
-                            <div class="w-2 h-2 rounded-full bg-slate-800"></div>
-                            <div class="w-2 h-2 rounded-full bg-slate-800"></div>
-                            <div class="w-2 h-2 rounded-full bg-slate-800"></div>
-                        </div>
-                        <span class="text-[9px] font-bold text-slate-600 font-mono tracking-widest uppercase">Kernel Logs</span>
-                    </div>
-                    <span id="uptime" class="text-[9px] font-bold text-slate-700 font-mono tracking-widest uppercase">Session Active</span>
-                </div>
-                <div id="consoleLog" class="flex-1 p-6 font-mono text-[11px] text-emerald-500/70 overflow-y-auto space-y-1.5 bg-black/40 scrollbar-hide selection:bg-emerald-500/20">
-                    <p class="text-slate-600 font-bold tracking-tight">>> SYSLOG INITIALIZED [VERSION 2.1.0]</p>
-                    <p class="text-slate-600 font-bold tracking-tight">>> LISTENING FOR INPUT BUFFER...</p>
-                </div>
-            </div>
-        </div>
-
-    </div>
-
-    <!-- Hidden Utils -->
-    <canvas id="procCanvas" class="hidden"></canvas>
-
-    <script>
-        // Extraction Logic
-        let extractedSet = new Set();
-        let dlIndex = parseInt(localStorage.getItem('omni_dlIndex') || '1');
-        let isProcessing = false;
-
-        const ui = {
-            input: document.getElementById('fileInput'),
-            statusPanel: document.getElementById('statusPanel'),
-            progressBar: document.getElementById('progressBar'),
-            percentText: document.getElementById('percentText'),
-            engineStatus: document.getElementById('engineStatus'),
-            statusDot: document.getElementById('statusDot'),
-            dlBtn: document.getElementById('dlBtn'),
-            countBadge: document.getElementById('countBadge'),
-            logs: document.getElementById('consoleLog'),
-            hint: document.getElementById('nextFileHint'),
-            scanline: document.getElementById('scanline'),
-            progressLabel: document.getElementById('progressLabel')
-        };
-
-        // Initialize UI State
-        ui.hint.innerText = `VOLUME: ${dlIndex}.CSV`;
-
-        // Batch File Handling
-        ui.input.addEventListener('change', async (e) => {
-            if (isProcessing) return;
-            const files = Array.from(e.target.files).slice(0, 20);
-            if (!files.length) return;
-
-            startProcess(files.length);
-            
-            for (let i = 0; i < files.length; i++) {
-                const file = files[i];
-                log(`>> INGESTING: ${file.name.toUpperCase()}`, "text-slate-400 italic");
-                updateProgress(((i) / files.length) * 100);
-                ui.progressLabel.innerText = `Scanning: ${file.name.substring(0, 15)}...`;
-                
-                try {
-                    const cleanImg = await processImage(file);
-                    const { data } = await Tesseract.recognize(cleanImg, 'eng');
-                    const rawText = data.text;
-                    const foundCount = parseIndianNumbers(rawText);
-                    
-                    if(foundCount > 0) {
-                        log(`>> DETECTED ${foundCount} TARGET(S) IN OBJECT ${i+1}.`, "text-emerald-500 font-bold");
-                    } else {
-                        log(`>> OBJECT ${i+1}: NO VALID TARGETS FOUND.`, "text-slate-700");
-                    }
-                } catch (err) {
-                    log(`>> KERNEL ERROR ON OBJECT ${i+1}: ${err.message.toUpperCase()}`, "text-red-600 font-bold");
-                }
-            }
-
-            endProcess();
-        });
-
-        // Image Enhancement Engine
-        function processImage(file) {
-            return new Promise((resolve, reject) => {
-                const img = new Image();
-                img.onload = () => {
-                    const canvas = document.getElementById('procCanvas');
-                    const ctx = canvas.getContext('2d');
-                    
-                    // High-contrast grayscale for Tesseract
-                    canvas.width = img.width;
-                    canvas.height = img.height;
-                    ctx.filter = "grayscale(100%) contrast(160%) brightness(110%)";
-                    ctx.drawImage(img, 0, 0);
-                    
-                    resolve(canvas.toDataURL('image/jpeg', 0.95));
-                };
-                img.onerror = reject;
-                img.src = URL.createObjectURL(file);
-            });
-        }
-
-        // Regex Logic: Optimized for Indian Mobiles
-        function parseIndianNumbers(text) {
-            const before = extractedSet.size;
-            
-            // Regex handles: +91, 91, 0 prefixes, spaces, dashes. 
-            // Ensures the main 10 digits start with [6,7,8,9]
-            const regex = /(?:(?:\+|0{0,2})91[\s-]?)?([6789][\s-]?\d[\s-]?\d[\s-]?\d[\s-]?\d[\s-]?\d[\s-]?\d[\s-]?\d[\s-]?\d[\s-]?\d)/g;
-            const matches = Array.from(text.matchAll(regex));
-
-            matches.forEach(match => {
-                let clean = match[1].replace(/\D/g, ''); // Extract the 10 core digits
-                if (clean.length === 10) {
-                    extractedSet.add(`91${clean}`); // Standardize to 91XXXXXXXXXX
-                }
-            });
-
-            ui.countBadge.innerText = extractedSet.size.toString().padStart(2, '0');
-            return extractedSet.size - before;
-        }
-
-        // Export Functionality
-        function downloadCSV() {
-            if (extractedSet.size === 0) return;
-            
-            let content = "Index,Identity,Formatted Value\n";
-            let idx = 1;
-            extractedSet.forEach(num => {
-                content += `${idx},Mobile,${num}\n`;
-                idx++;
-            });
-
-            const blob = new Blob([content], { type: 'text/csv' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `${dlIndex}.csv`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-
-            log(`>> EXPORT COMPLETE: ${dlIndex}.CSV GENERATED.`, "text-blue-400 font-bold");
-            
-            // Sequential Numbering
-            dlIndex++;
-            localStorage.setItem('omni_dlIndex', dlIndex);
-            ui.hint.innerText = `VOLUME: ${dlIndex}.CSV`;
-        }
-
-        // State & Log Utils
-        function startProcess(count) {
-            isProcessing = true;
-            ui.statusPanel.classList.remove('hidden');
-            ui.scanline.style.display = 'block';
-            ui.engineStatus.innerHTML = '<span class="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse"></span> ENGINE ACTIVE';
-            ui.engineStatus.classList.replace('text-slate-500', 'text-blue-400');
-            ui.dlBtn.disabled = true;
-            ui.dlBtn.classList.remove('btn-active');
-            ui.dlBtn.innerHTML = '<svg class="w-4 h-4 animate-spin" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> SCANNING...';
-            
-            log(`>> INITIALIZING BATCH SCAN FOR ${count} OBJECTS...`, "text-white font-bold");
-        }
-
-        function endProcess() {
-            isProcessing = false;
-            updateProgress(100);
-            ui.scanline.style.display = 'none';
-            ui.progressLabel.innerText = 'Process Finished.';
-            ui.engineStatus.innerHTML = '<span class="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span> ENGINE IDLE';
-            ui.engineStatus.classList.replace('text-blue-400', 'text-emerald-500');
-            
-            if (extractedSet.size > 0) {
-                ui.dlBtn.disabled = false;
-                ui.dlBtn.classList.add('btn-active');
-                ui.dlBtn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4-4m0 0L8 8m4-4v12"></path></svg> DOWNLOAD CSV';
-                ui.dlBtn.classList.replace('text-slate-600', 'text-white');
-                log(">> BATCH FINALIZED. DATA READY FOR EXFILTRATION.", "text-emerald-400 font-bold tracking-tight");
-            } else {
-                ui.dlBtn.innerHTML = 'No Targets Found';
-                log(">> SCAN COMPLETE. ZERO TARGETS EXTRACTED.", "text-amber-500 font-bold");
-            }
-        }
-
-        function updateProgress(val) {
-            ui.progressBar.style.width = `${val}%`;
-            ui.percentText.innerText = `${Math.round(val)}%`;
-        }
-
-        function log(msg, classes = "") {
-            const p = document.createElement('p');
-            p.className = `${classes} animate-in fade-in slide-in-from-left-2 duration-300`;
-            p.innerText = msg;
-            ui.logs.appendChild(p);
-            ui.logs.scrollTop = ui.logs.scrollHeight;
-        }
-
-        function resetApp() {
-            if(confirm("Confirm system flush?")) {
-                localStorage.removeItem('omni_dlIndex');
-                location.reload();
-            }
-        }
-    </script>
+<body>
+  <div id="root"></div>
+  <script type="module" src="index.tsx"></script>
 </body>
 </html>

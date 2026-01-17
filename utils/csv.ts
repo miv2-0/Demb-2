@@ -1,8 +1,11 @@
-// Implement CSV generation and browser download utilities
+// Implement CSV generation optimized for Google Contacts import
 export const generateCSV = (data: string[]): string => {
   if (data.length === 0) return '';
-  // Construct a standard CSV string with a header row
-  return 'Phone Number\n' + data.join('\n');
+  // Construct headers compatible with Google Contacts: Name, Phone 1 - Value
+  const headers = 'Name,Phone 1 - Value';
+  const rows = data.map((num, idx) => `Contact ${idx + 1},${num}`);
+  
+  return `${headers}\n${rows.join('\n')}`;
 };
 
 export const downloadCSV = (content: string, filename: string): void => {
@@ -18,6 +21,5 @@ export const downloadCSV = (content: string, filename: string): void => {
   link.click();
   document.body.removeChild(link);
   
-  // Release the object URL to prevent memory leaks
   URL.revokeObjectURL(url);
 };
