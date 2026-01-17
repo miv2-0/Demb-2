@@ -85,8 +85,12 @@ const App: React.FC = () => {
         // 3. Extract Numbers
         const numbers = extractAndFormatNumbers(text);
         numbers.forEach(num => {
-          // Prevent duplicates globally
-          if (!newExtracted.find(n => n.formatted === num) && !extractedNumbers.find(n => n.formatted === num)) {
+          // Prevent duplicates globally across this batch and existing session
+          const isDuplicate = 
+            newExtracted.some(n => n.formatted === num) || 
+            extractedNumbers.some(n => n.formatted === num);
+          
+          if (!isDuplicate) {
             newExtracted.push({
               id: Math.random().toString(36).substr(2, 9),
               original: num,
@@ -145,7 +149,7 @@ const App: React.FC = () => {
             </div>
             <div>
               <h1 className="text-xl font-bold tracking-tight text-slate-900">OmniExtract Pro</h1>
-              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Background Processing Engine</p>
+              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">High-End Extraction Engine</p>
             </div>
           </div>
           
@@ -154,13 +158,13 @@ const App: React.FC = () => {
               onClick={() => setShowLogs(!showLogs)}
               className="text-xs font-bold text-slate-400 hover:text-indigo-600 transition-colors uppercase tracking-widest"
             >
-              {showLogs ? 'Hide Logs' : 'View Logs'}
+              {showLogs ? 'Hide Engine Logs' : 'View Engine Logs'}
             </button>
             <div className="h-6 w-px bg-slate-200"></div>
             <button 
               onClick={clearAll}
               className="p-2 text-slate-400 hover:text-red-500 transition-colors"
-              title="Clear All"
+              title="Clear All Session Data"
             >
               <Trash2 size={20} />
             </button>
@@ -170,13 +174,13 @@ const App: React.FC = () => {
 
       <main className="flex-1 max-w-7xl mx-auto w-full p-4 lg:p-8 grid grid-cols-1 lg:grid-cols-12 gap-8">
         
-        {/* Left Column: Upload & Processing */}
+        {/* Left Column: Upload & Processing Queue */}
         <div className="lg:col-span-8 space-y-6">
           
           {/* Upload Card */}
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
             <div className="p-6 border-b border-slate-100 flex items-center justify-between">
-              <h2 className="text-lg font-semibold flex items-center gap-2">
+              <h2 className="text-lg font-semibold flex items-center gap-2 text-slate-800">
                 <Upload size={18} className="text-indigo-500" />
                 Upload Images
               </h2>
@@ -190,7 +194,7 @@ const App: React.FC = () => {
                     Export CSV
                   </button>
                 )}
-                <span className="text-xs text-slate-400 font-medium">Max 20 images</span>
+                <span className="text-xs text-slate-400 font-medium">Batch Limit: 20</span>
               </div>
             </div>
             
@@ -201,9 +205,9 @@ const App: React.FC = () => {
                     <ImagePlus className="w-8 h-8 text-indigo-500" />
                   </div>
                   <p className="mb-2 text-sm text-slate-700">
-                    <span className="font-semibold text-indigo-600">Select images</span> or drag and drop
+                    <span className="font-semibold text-indigo-600">Browse image files</span> or drag and drop
                   </p>
-                  <p className="text-xs text-slate-500">PNG, JPG or JPEG (Local batch OCR)</p>
+                  <p className="text-xs text-slate-500 font-medium">Automatic 91-prefix & formatting</p>
                 </div>
                 <input 
                   type="file" 
@@ -218,27 +222,27 @@ const App: React.FC = () => {
               {files.length > 0 && (
                 <div className="mt-8 space-y-4">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider">Queue: {files.length} files</h3>
+                    <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider">Processing Queue: {files.length}</h3>
                     <button 
                       onClick={processAll}
                       disabled={isProcessing}
                       className="px-5 py-2.5 bg-indigo-600 text-white text-sm font-bold rounded-xl hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2 transition-all shadow-lg shadow-indigo-100"
                     >
                       {isProcessing ? <Loader2 className="animate-spin" size={18} /> : <CheckCircle2 size={18} />}
-                      {isProcessing ? 'Processing Batch...' : 'Start Scan'}
+                      {isProcessing ? 'Processing...' : 'Run Extraction'}
                     </button>
                   </div>
                   
                   <div className="max-h-[500px] overflow-y-auto space-y-2 pr-2">
                     {files.map(file => (
                       <div key={file.id} className="flex items-center gap-4 p-3 bg-white border border-slate-200 rounded-xl transition-all">
-                        <img src={file.previewUrl} className="w-12 h-12 object-cover rounded-lg border border-slate-100" />
+                        <img src={file.previewUrl} className="w-12 h-12 object-cover rounded-lg border border-slate-100" alt="preview" />
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-semibold text-slate-800 truncate">{file.file.name}</p>
                           <div className="mt-1">
                             {file.status === 'completed' ? (
                               <div className="flex items-center gap-1.5">
-                                <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Completed</span>
+                                <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Success</span>
                                 <CheckCircle2 size={10} className="text-emerald-500" />
                               </div>
                             ) : file.status === 'processing' ? (
@@ -248,7 +252,7 @@ const App: React.FC = () => {
                             ) : file.status === 'error' ? (
                               <span className="text-[10px] font-black text-red-500 uppercase tracking-widest">Failed</span>
                             ) : (
-                              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">In Queue</span>
+                              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Waiting</span>
                             )}
                           </div>
                         </div>
@@ -260,92 +264,99 @@ const App: React.FC = () => {
             </div>
           </div>
 
-          {/* Success Message Placeholder */}
+          {/* Background Status Information */}
           {extractedNumbers.length > 0 && !isProcessing && (
-            <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-6 text-center animate-in slide-in-from-bottom-4 duration-500">
+            <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-6 text-center animate-in slide-in-from-bottom-4 duration-500 shadow-sm shadow-emerald-50">
                <div className="mx-auto w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center mb-3">
                   <CheckCircle2 className="text-emerald-600" size={24} />
                </div>
-               <h3 className="text-emerald-900 font-bold">Extraction Complete</h3>
-               <p className="text-emerald-800 text-sm mt-1">Found {extractedNumbers.length} unique mobile numbers. Click "Export CSV" to download the formatted list.</p>
+               <h3 className="text-emerald-900 font-bold text-lg">Batch Processed Successfully</h3>
+               <p className="text-emerald-800 text-sm mt-1 font-medium">
+                 {extractedNumbers.length} unique Indian mobile numbers were extracted and formatted with the 91-prefix.
+               </p>
+               <p className="text-emerald-600 text-xs mt-3 uppercase font-bold tracking-widest">
+                 Ready for CSV Export
+               </p>
             </div>
           )}
         </div>
 
-        {/* Right Column: History & Logs */}
+        {/* Right Column: Statistics, History & Logs */}
         <div className="lg:col-span-4 space-y-6">
           
-          {/* Stats Widget */}
-          <div className="bg-indigo-600 rounded-3xl shadow-xl shadow-indigo-200 p-8 text-white relative overflow-hidden">
+          {/* Dashboard Stats */}
+          <div className="bg-indigo-600 rounded-3xl shadow-xl shadow-indigo-100 p-8 text-white relative overflow-hidden">
             <div className="relative z-10">
-              <h3 className="text-indigo-100 text-[10px] font-black uppercase tracking-[0.2em] mb-2 opacity-80">Extraction Stats</h3>
-              <div className="text-6xl font-black mb-1 leading-none">{extractedNumbers.length.toString().padStart(2, '0')}</div>
-              <p className="text-indigo-100 text-xs font-medium">Valid Unique Numbers Found</p>
+              <h3 className="text-indigo-100 text-[10px] font-black uppercase tracking-[0.2em] mb-2 opacity-80">Extraction Dashboard</h3>
+              <div className="text-6xl font-black mb-1 leading-none tracking-tight">
+                {extractedNumbers.length.toString().padStart(2, '0')}
+              </div>
+              <p className="text-indigo-100 text-xs font-semibold mt-2">Unique Mobiles in Buffer</p>
             </div>
-            <LayoutDashboard className="absolute -bottom-6 -right-6 w-32 h-32 text-indigo-500 opacity-30" />
+            <LayoutDashboard className="absolute -bottom-6 -right-6 w-32 h-32 text-indigo-500 opacity-30 rotate-12" />
           </div>
 
-          {/* History Card */}
+          {/* Export History */}
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
             <div className="p-6 border-b border-slate-100 flex items-center gap-2">
               <History size={18} className="text-indigo-500" />
-              <h2 className="text-lg font-semibold">Recent Downloads</h2>
+              <h2 className="text-lg font-semibold text-slate-800">Recent Exports</h2>
             </div>
             <div className="p-4 space-y-3">
               {history.length > 0 ? history.map(item => (
                 <div key={item.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100 hover:border-indigo-100 transition-all group">
                   <div className="min-w-0">
                     <p className="text-sm font-bold text-slate-800">{item.filename}</p>
-                    <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-tighter mt-0.5">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter mt-0.5">
                       {new Date(item.timestamp).toLocaleTimeString()} • {item.count} items
                     </p>
                   </div>
                   <button 
                     onClick={() => downloadCSV(item.data, item.filename)}
-                    className="p-2 text-indigo-600 bg-white rounded-lg shadow-sm border border-slate-200 group-hover:bg-indigo-600 group-hover:text-white transition-all"
+                    className="p-2 text-indigo-600 bg-white rounded-lg shadow-sm border border-slate-200 group-hover:bg-indigo-600 group-hover:text-white transition-all shadow-indigo-50"
                   >
                     <Download size={16} />
                   </button>
                 </div>
               )) : (
-                <p className="text-center py-8 text-sm text-slate-400 italic font-medium">No session history yet</p>
+                <p className="text-center py-8 text-sm text-slate-400 italic font-medium">No previous exports found</p>
               )}
             </div>
           </div>
 
-          {/* Raw Text Log Section (Toggleable) */}
+          {/* Background Engine Logs */}
           {showLogs && (
-            <div className="bg-slate-900 rounded-2xl shadow-xl p-6 text-slate-300 font-mono text-xs animate-in slide-in-from-top-4 duration-300">
+            <div className="bg-slate-900 rounded-2xl shadow-xl p-6 text-slate-300 font-mono text-xs animate-in slide-in-from-top-4 duration-300 border border-slate-800">
               <div className="flex items-center justify-between mb-4 border-b border-slate-800 pb-3">
-                <span className="flex items-center gap-2 text-emerald-400">
+                <span className="flex items-center gap-2 text-emerald-400 font-bold uppercase tracking-widest">
                   <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
-                  RAW OCR LOGS
+                  OCR Stream
                 </span>
-                <span className="text-[10px] text-slate-500 uppercase font-bold tracking-widest">Active</span>
+                <span className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Read Only</span>
               </div>
-              <div className="max-h-96 overflow-y-auto space-y-4">
+              <div className="max-h-96 overflow-y-auto space-y-4 scrollbar-hide">
                 {files.filter(f => f.rawText).length > 0 ? (
                   files.filter(f => f.rawText).map(f => (
-                    <div key={f.id} className="border-l border-slate-700 pl-3">
-                      <p className="text-indigo-400 font-bold mb-1">[{f.file.name}]</p>
-                      <p className="leading-relaxed opacity-80 whitespace-pre-wrap">{f.rawText}</p>
+                    <div key={f.id} className="border-l-2 border-slate-700 pl-3 py-1">
+                      <p className="text-indigo-400 font-bold mb-1">Source: {f.file.name}</p>
+                      <p className="leading-relaxed opacity-70 whitespace-pre-wrap">{f.rawText}</p>
                     </div>
                   ))
                 ) : (
-                  <p className="text-slate-600 italic">Logs will appear here during scan.</p>
+                  <p className="text-slate-600 italic">Engine logs are populated upon scan start...</p>
                 )}
               </div>
             </div>
           )}
 
-          {/* Info Card */}
-          <div className="bg-amber-50 rounded-2xl p-6 border border-amber-100">
+          {/* Privacy & Mode Info */}
+          <div className="bg-slate-50 rounded-2xl p-6 border border-slate-200">
             <div className="flex items-start gap-3">
-              <AlertCircle size={20} className="text-amber-500 shrink-0" />
+              <AlertCircle size={20} className="text-indigo-500 shrink-0" />
               <div>
-                <h4 className="text-sm font-bold text-amber-900">Background Processing</h4>
-                <p className="text-xs text-amber-800/80 mt-2 leading-relaxed font-medium">
-                  Result data is hidden for privacy and focus. The extraction engine removes duplicates and formats numbers automatically in the background.
+                <h4 className="text-sm font-bold text-slate-900 uppercase tracking-tight">Privacy Focus Mode</h4>
+                <p className="text-xs text-slate-600 mt-2 leading-relaxed font-medium">
+                  Result previews are disabled by default. The extraction engine handles all deduplication and 91-prefix formatting invisibly. Use the "Export CSV" button to retrieve the compiled dataset.
                 </p>
               </div>
             </div>
@@ -356,7 +367,7 @@ const App: React.FC = () => {
 
       {/* Footer */}
       <footer className="bg-white border-t border-slate-100 py-6 px-6 text-center text-slate-400 text-[10px] font-bold uppercase tracking-[0.3em]">
-        OmniExtract Pro • Developed for Batch Mobile Extraction • © 2024
+        OmniExtract Pro • Background OCR Engine • © 2024
       </footer>
     </div>
   );

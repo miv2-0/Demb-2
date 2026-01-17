@@ -1,4 +1,4 @@
-// Implement image to base64 conversion and phone number extraction logic
+// Implement image to base64 conversion and advanced phone number extraction logic
 export const preprocessImage = (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -13,13 +13,26 @@ export const preprocessImage = (file: File): Promise<string> => {
   });
 };
 
-export const extractAndFormatNumbers = (text: string): string[] => {
-  // Regex pattern to identify potential international and local mobile number formats
-  const phoneRegex = /(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/g;
-  const matches = text.match(phoneRegex) || [];
+/**
+ * Extracts Indian mobile numbers from text and formats them to 91XXXXXXXXXX
+ */
+export function extractAndFormatNumbers(text: string): string[] {
+  // Regex for 10-digit Indian numbers, potentially with spaces/dashes and country code prefixes
+  // Matches: 9656 50 1307, +919656501307, 09656501307, etc.
+  // Look for 10 digits starting with 6, 7, 8, or 9
+  const regex = /(?:(?:\+|0{0,2})91[\s-]?)?([6789][\s-]?\d[\s-]?\d[\s-]?\d[\s-]?\d[\s-]?\d[\s-]?\d[\s-]?\d[\s-]?\d[\s-]?\d)/g;
   
-  // Normalize matches to digits only and filter for standard phone number lengths
-  return matches
-    .map(num => num.replace(/\D/g, ''))
-    .filter(num => num.length >= 10 && num.length <= 15);
-};
+  const matches = Array.from(text.matchAll(regex));
+  const results: string[] = [];
+
+  for (const match of matches) {
+    // Remove all non-digit characters
+    const clean = match[1].replace(/\D/g, '');
+    if (clean.length === 10) {
+      results.push(`91${clean}`);
+    }
+  }
+
+  // Remove duplicates
+  return Array.from(new Set(results));
+}
